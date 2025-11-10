@@ -8,24 +8,24 @@ Created on Mon Nov 10 13:21:16 2025
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import os
 
 st.set_page_config(page_title="BBQ Team Results Tracker", layout="wide")
 
 st.title("🔥 BBQ Team Results Tracker")
-st.caption("Analyze KCBS competition performance across years, meats, and locations")
+st.caption("Analyze KCBS competition results — meats, participants, and year-over-year performance")
 
-# --- Upload Section ---
-st.sidebar.header("📂 Upload Your Excel File")
-uploaded_file = st.sidebar.file_uploader("Upload BBQ Results Excel (.xlsx)", type=["xlsx"])
+# --- CONFIG ---
+DEFAULT_FILE = "Barking Hogs BBQ.xlsx"
 
+# --- Function to Load Excel Data ---
 @st.cache_data
-def load_data(file):
-    xls = pd.ExcelFile(file)
+def load_data(file_path):
+    xls = pd.ExcelFile(file_path)
     all_data = []
 
     for sheet in xls.sheet_names:
         df = pd.read_excel(xls, sheet_name=sheet)
-        # Only keep valid sheets with expected columns
         expected_cols = {"Year", "Meat", "Participant", "Score", "Rank", "Location"}
         if expected_cols.issubset(df.columns):
             df["Sheet"] = sheet
@@ -36,19 +36,18 @@ def load_data(file):
     else:
         return pd.DataFrame(columns=["Year", "Meat", "Participant", "Score", "Rank", "Location", "Sheet"])
 
-if uploaded_file:
-    data = load_data(uploaded_file)
+# --- Load Excel Automatically if Exists ---
+if os.path.exists(DEFAULT_FILE):
+    st.sidebar.success(f"✅ Found local file: {DEFAULT_FILE}")
+    data = load_data(DEFAULT_FILE)
 else:
-    st.sidebar.warning("No file uploaded — showing sample data.")
-    data = pd.DataFrame({
-        "Year": [2024, 2024, 2024, 2024],
-        "Meat": ["Chicken", "Ribs", "Pork", "Brisket"],
-        "Participant": ["Sudheer", "Grant", "James", "Andy"],
-        "Score": [166.8228, 160.5256, 165.7028, 166.2628],
-        "Rank": [278, 373, 281, 244],
-        "Location": ["American Royal Open"] * 4,
-        "Sheet": ["2024"] * 4
-    })
+    st.sidebar.warning(f"⚠️ No local file named '{DEFAULT_FILE}' found.")
+    uploaded_file = st.sidebar.file_uploader("Upload BBQ Results Excel (.xlsx)", type=["xlsx"])
+    if uploaded_file:
+        data = load_data(uploaded_file)
+    else:
+        st.info("No data available. Please upload your Excel file to continue.")
+        st.stop()
 
 # --- Filters ---
 st.sidebar.header("🔍 Filters")
@@ -93,7 +92,7 @@ fig = px.bar(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# --- Trend Analysis ---
+# --- Yearly Trend ---
 st.subheader("📈 Year-over-Year Trend")
 trend = (
     data.groupby(["Year", "Meat"], as_index=False)
